@@ -1,6 +1,6 @@
 import math
 import random
-import pycontroller
+import pygame
 import os.path
 from abc import ABCMeta, abstractmethod
 
@@ -18,10 +18,18 @@ class Vector2D:
 		self.x -= vector.x
 		self.y -= vector.y
 		return self
+		
+	def __imul__(self, vector):
+		self.x *= vector.x
+		self.y *= vector.y
 	
 	def copy(self, vector):
 		self.x = vector.x
 		self.y = vector.y
+		
+	def zero(self):
+		self.x = 0
+		self.y = 0
 
 class Colors: 
 	BLACK = (0,     0,   0)
@@ -34,13 +42,13 @@ class Renderable_object:
 	
 	is_active = True
 	
-	def __init__(self, controller, pos):
-		self.controller = controller
+	def __init__(self, game, pos):
+		self.game = game
 		self.pos = pos
 		
 	def get_fixed_position(self):
-		x = int(round(self.pos.x * self.controller.dims.x))
-		y = int(round(self.pos.y * self.controller.dims.y))
+		x = int(round(self.pos.x * self.game.dims.x))
+		y = int(round(self.pos.y * self.game.dims.y))
 		return x, y
 	
 	@abstractmethod
@@ -48,21 +56,21 @@ class Renderable_object:
 		pass
 
 class Caption_object(Renderable_object):
-	def __init__(self, controller):
-		Renderable_object.__init__(self, controller, Vector2D(0, 0))
-		font_name = pycontroller.font.get_default_font()
-		self.hud_font = pycontroller.font.SysFont(
-			font_name, controller.dims.y / 10)
-		self.msg_font = pycontroller.font.SysFont(
-			font_name, controller.dims.y / 20)
+	def __init__(self, game):
+		Renderable_object.__init__(self, game, Vector2D(0, 0))
+		font_name = pygame.font.get_default_font()
+		self.hud_font = pygame.font.SysFont(
+			font_name, game.dims.y / 10)
+		self.msg_font = pygame.font.SysFont(
+			font_name, game.dims.y / 20)
 		
 class Title_screen(Caption_object):
-	def __init__(self, controller):
-		Caption_object.__init__(self, controller)
+	def __init__(self, game):
+		Caption_object.__init__(self, game)
 		
 	def render(self):
 		text = self.hud_font.render("CIRCLE", False, Colors.GREEN)
-		self.controller.screen.blit(text, text.get_rect(midbottom = (240, 240)))
+		self.game.screen.blit(text, text.get_rect(midbottom = (240, 240)))
 		text = self.hud_font.render("SHOOTER", False, Colors.GREEN)
 		self.screen.blit(text, text.get_rect(midtop = (240, 240)))
 		
@@ -71,16 +79,62 @@ class Title_screen(Caption_object):
 		text = self.msg_font.render("presents", False, Colors.GREEN)
 		self.screen.blit(text, text.get_rect(midtop = (240, 120)))
 		
-		high_score = "High score: " + str(self.controller.high_score)
+		high_score = "High score: " + str(self.game.high_score)
 		text = self.msg_font.render(high_score, False, Colors.GREEN)
-		self.screen.blit(text, text.get_rect(midbottom = (240, 360)))
-		max_level = "Max level: " + str(self.controller.max_level)
+		self.game.screen.blit(text, text.get_rect(midbottom = (240, 360)))
+		max_level = "Max level: " + str(self.game.max_level)
 		text = self.msg_font.render(max_level, False, Colors.GREEN)
-		self.screen.blit(text, text.get_rect(midtop = (240, 360)))
+		self.game.screen.blit(text, text.get_rect(midtop = (240, 360)))
 		
+		self.game.screen.fill(Colors.GREEN, (500, 424, 140, 24))
+	
+class Hud(Caption_object):
+	def __init__(self, game):
+		Caption_object.__init__(self, game)
+		
+	def render(self):
+		text = self.hud_font.render(str(self.game.level), False, Colors.BLACK)
+		self.game.screen.blit(text, (500, 48))
+		text = self.hud_font.render(str(self.game.lives), False, Colors.BLACK)
+		self.game.screen.blit(text, (500, 48 * 3))
+		text = self.hud_font.render(str(self.game.score), False, Colors.BLACK)
+		self.game.screen.blit(text, (500, 48 * 5))
+		
+class Game_messages(Caption_object):
+	def __init__(self, game):
+		Caption_object.__init__(self, game)
+		
+	def render(self):
+		if (self.game.death_timer > 0) and (self.game.lives < 1):
+			text = self.hud_font.render("GAME", False, Colors.GREEN)
+			self.game.screen.blit(text, text.get_rect(midbottom = (240, 240)))
+			text = self.hud_font.render("OVER", False, Colors.GREEN)
+			self.game.screen.blit(text, text.get_rect(midtop = (240, 240)))
+		elif self.game.is_paused:
+			text = self.msg_font.render("Game paused", False, Colors.GREEN)
+			self.game.screen.blit(text, text.get_rect(midbottom = (240, 480)))
+	
+class Background(Caption_object):
+	def __init__(self, game):
+		Caption_object.__init__(self, game)
+		
+	def render(self):
+		self.game.bglayer.fill(Colors.BLACK)
+		self.game.bglayer.fill(Colors.GREEN, (480, 0, 160, 480))
+		
+		msg = ["Level", "Lives", "Score"]
+		for i in range(3):
+			text = self.hud_font.render(msg[i], False, Colors.BLACK)
+			self.game.bglayer.blit(text, (500, i * 96))
+		
+		msg = ["[Q]uit", "[P]ause", "[P]lay"]
+		for i in range(3):
+			text = self.msg_font.render(msg[i], False, Colors.WHITE)
+			self.game.bglayer.blit(text, (500, 448 - i * 24))
+	
 class Bubble2D(Renderable_object):
-	def __init__(self, controller, radius):
-		Renderable_object.__init__(self, controller, Vector2D(0, 0))
+	def __init__(self, game, radius):
+		Renderable_object.__init__(self, game, Vector2D(0, 0))
 		self.radius = radius
 		self.speed = Vector2D(0, 0)
 	
@@ -109,34 +163,37 @@ class Bubble2D(Renderable_object):
 		return dist < (self.radius + other.radius)
 		
 class Ship(Bubble2D):
-	def __init__(self, controller):
-		Bubble2D.__init__(self, controller)
-		self.shield_timer = 0
+	accel = Vector2D(0, 0)
+
+	def __init__(self, game):
+		Bubble2D.__init__(self, game, 1.0 / 25)
+		self.pos = Vector2D(0.5, 0.5)
+		self.shield_timer = 6
 	
 	def update(self, delta_t):
 		super(Bubble2D, self).update(delta_t)
 		self.wrap_around()
 	
 	def render(self):
-		bbox = pycontroller.draw.circle(
-			self.controller.screen,
+		bbox = pygame.draw.circle(
+			self.game.screen,
 			Colors.SILVER,
 			self.get_fixed_position(),
-			int(round(self.radius * self.controller.dims.y)
+			int(round(self.radius * self.game.dims.y)
 			
-		pycontroller.draw.circle(
-			self.controller.screen,
+		pygame.draw.circle(
+			self.game.screen,
 			Colors.BLACK,
 			self.get_fixed_position(),
-			int(round(self.radius * 0.5 * self.controller.dims.y)),
+			int(round(self.radius * 0.5 * self.game.dims.y)),
 			1)
 			
 		if self.shield_timer > 0
-			pycontroller.draw.rect(self.controller.screen, Colors.SILVER, bbox, 1)
+			pygame.draw.rect(self.game.screen, Colors.SILVER, bbox, 1)
 			
 class Bullet(Bubble2D):
-	def __init__(self, controller):
-		Bubble2D.__init__(self, controller)
+	def __init__(self, game):
+		Bubble2D.__init__(self, game, 0.01)
 
 	def update(self, delta_t):
 		super(Bullet, self).update(delta_t)
@@ -144,15 +201,15 @@ class Bullet(Bubble2D):
 			self.is_active = False
 		
 	def render(self):
-		pycontroller.draw.circle(
-			self.controller.screen,
+		pygame.draw.circle(
+			self.game.screen,
 			Colors.RED,
 			self.get_fixed_position(),
-			int(round(self.radius * self.controller.dims.y)))
+			int(round(self.radius * self.game.dims.y)))
 
 class Power_up(Bubble2D):
-	def __init__(self, controller):
-		Bubble2D.__init__(self, controller)
+	def __init__(self, game):
+		Bubble2D.__init__(self, game)
 	
 	def update(self, delta_t):
 		super(Power_up, self).update(delta_t)
@@ -161,84 +218,275 @@ class Power_up(Bubble2D):
 		pass
 		
 class Shield_power_up(Power_up):
-	def __init__(self, controller):
-		Power_up.__init__(self, controller)
+	def __init__(self, game):
+		Power_up.__init__(self, game)
 		
 	def render(self):
 		super(Shield_power_up, self).render()
-		bbox = pycontroller.draw.circle(
-			self.controller.screen,
+		bbox = pygame.draw.circle(
+			self.game.screen,
 			Colors.WHITE,
 			self.get_fixed_position(),
-			int(round(self.radius * self.controller.dims.y)),
+			int(round(self.radius * self.game.dims.y)),
 			1)
-		pycontroller.draw.rect(self.controller.screen, Colors.WHITE, bbox, 1)
+		pygame.draw.rect(self.game.screen, Colors.WHITE, bbox, 1)
 		
 class Freeze_power_up(Power_up):
-	def __init__(self, controller):
-		Power_up.__init__(self, controller)
+	def __init__(self, game):
+		Power_up.__init__(self, game)
 		
 	def render(self):
 		super(Freeze_power_up, self).render()
 	
-		radius = self.radius * self.controller.dims.y
-		pos_x = self.pos.x * self.controller.dims.x
-		pos_y = self.pos.y * self.controller.dims.y
+		radius = self.radius * self.game.dims.y
+		pos_x = self.pos.x * self.game.dims.x
+		pos_y = self.pos.y * self.game.dims.y
 		
-		bbox = pycontroller.rect(0, 0, radius * 2, radius * 2)
+		bbox = pygame.rect(0, 0, radius * 2, radius * 2)
 		bbox.center = (pos_x, pos_y)
-		pycontroller.draw.rect(self.controller.screen, Colors.WHITE, bbox, 1)
+		pygame.draw.rect(self.game.screen, Colors.WHITE, bbox, 1)
 		bbox.inflate_ip(-radius, -radius)
-		pycontroller.draw.rect(self.controller.screen, Colors.WHITE, bbox, 1)
+		pygame.draw.rect(self.game.screen, Colors.WHITE, bbox, 1)
 		bbox.inflate_ip(-radius * 0.5, -radius * 0.5)
-		pycontroller.draw.rect(self.controller.screen, Colors.WHITE, bbox, 1)
+		pygame.draw.rect(self.game.screen, Colors.WHITE, bbox, 1)
 		
 class Enemy(Bubble2D):
-	def __init__(self, controller):
-		Bubble2D.__init__(self, controller)
+	def __init__(self, game, kind):
+		Bubble2D.__init__(self, game)
+		self.kind = kind
 		self.color = random.choice([
 			"#ffffcc", "#ffccff", 
 		    "#ccffff", "#ffdddd", 
 		    "#ddffdd", "#ddddff"])
+	
+	def random_position():
+		return (random.random() - 0.5) * 3 + 0.5;
+	random_position = staticmethod(random_position)
+	
+	def random_speed(magnitude):
+		return (random.random() * magnitude * 2 - magnitude)
+	random_speed = staticmethod(random_speed)
+	
+	def spawn(kind, game):
+		if kind == "big":
+			size = 0.1
+			speed = 0.1
+		elif kind == "medium":
+			size = 0.075
+			speed = 0.15
+		elif kind == "small":
+			size = 0.05
+			speed = 0.25
+			
+		new_enemy = Enemy(game, kind)
+		new_enemy.pos = Vector2D(random_position(), random_position())
+		new_enemy.speed = Vector2D(random_speed(), random_speed())	
+	spawn = staticmethod(spawn)
 	
 	def update(self, delta_t):
 		super(Enemy, self).update(delta_t)
 		self.wrap_around()
 
 	def render(self):
-		pycontroller.draw.circle(
-			self.controller.screen,
+		pygame.draw.circle(
+			self.game.screen,
 			self.color,
 			self.get_fixed_position(),
-			int(round(self.radius * self.controller.dims.y)),
+			int(round(self.radius * self.game.dims.y)),
 			1)
 			
 class Explosion(Bubble2D):
-	def __init__(self, controller):
-		Bubble2D.__init__(self, controller)
+	def __init__(self, game):
+		Bubble2D.__init__(self, game)
 	
 	def update(self, delta_t):
 		super(Explosion, self).update(delta_t)
-		
+	
 	def render(self):
-		pycontroller.draw.circle(
-			self.controller.screen,
+		pygame.draw.circle(
+			self.game.screen,
 			Colors.RED,
 			self.get_fixed_position(),
-			int(round(self.radius * self.controller.dims.y)),
+			int(round(self.radius * self.game.dims.y)),
 			1)
 	
 class Game:
-	def __init__(self):
+	# Current statistics
+	level = 0
+	lives = 3
+	score = 0
+	
+	# Permanent statistics
+	high_score = 0
+	max_level  = 0
+	
+	# Time management
+	death_timer  = 0
+	finish_timer = 0
+	freeze_timer = 0
+	is_paused = False
+	
+	# Game objects
+	ship   = None
+	bullet = None
+	enemies    = []
+	power_ups  = []
+	explosions = []
+	
+	def __init__(self, controller):
+		self.dims    = controller.dims
+		self.screen  = controller.screen
+		self.bglayer = controller.bglayer
+	
+		self.title_screen_obj  = Title_screen(self)
+		self.game_messages_obj = Game_messages(self)
+		self.background_obj    = Background(self)
+		
+		self.background_obj.render()
+	
+	def init_game(self, level):
+		self.level = level
+		
+		# Update statistics
+		if level > self.max_level: 
+			self.max_level = level
+		
+		# Remove all objects
+		self.ship = None
+		self.bullet = None
+		del self.enemies[:]
+		del self.power_ups[:]
+		del self.explosions[:]
+		
+		# Spawn new objects
+		self.ship = Ship(self)
+		for i in range(level):
+			self.enemies.append(Enemy.spawn("big", self))
+	
+	def toggle_pause(self):
+		is_paused = not is_paused
+	
+	def shoot_at(self, x, y):
+		if self.bullet != None or self.ship == None:
+			return
+
+		x -= self.ship.pos.x;
+		y -= self.ship.pos.y;
+
+		bullet = Bullet(self)
+		bullet.pos.copy(self.ship.pos);
+		bullet.speed.x = x * 3
+		bullet.speed.y = y * 3
+	
+		absx = abs(x)
+		absy = abs(y)
+		if absx < 0.1 and absy < 0.1:
+			bullet.speed.x *= 30
+			bullet.speed.y *= 30
+			
+		self.bullet = bullet
+	
+	def fly_to(self, x, y):
+		if self.ship == None:
+			return
+
+		x -= self.ship.pos.x;
+		y -= self.ship.pos.y;
+		
+		self.ship.accel.x += x * 0.03;
+		self.ship.accel.y += y * 0.03;
+	
+	def stop_flying(self):
+		if self.ship == None:
+			return
+		
+		self.ship.accel.zero()
+	
+	def update(self, delta_t):
+		
 		
 	
 	def render(self):
+		self.screen.blit(self.bglayer, (0, 0))
 		
+		if self.level == 0:
+			self.title_screen_obj.render()
+		else:
+			self.render_game_objects()
+			self.game_messages_obj.render()
+			
+		self.hud_obj.render()
+
+		pygame.display.flip()
+	
+	def render_game_objects(self):
+		self.screen.set_clip((0, 0, 480, 480))
+		
+		# Render all objects
+		map(lambda x: x.render(), get_all_objects())
+		
+		self.screen.fill(Colors.GREEN, (500, 400, 140, 24))
+		
+	def get_all_objects(self):
+		return (ship + bullet + enemies + power_ups + explosions)
 	
 class Controller:
 	def __init__(self):
+		# PyGame init
+		pygame.init()
 		self.dims = Vector2D(640, 480)
-		self.screen = pycontroller.display.set_mode((self.dims.x, self.dims.y))
-		self.bglayer = pycontroller.Surface(screen.get_size())
+		self.screen = pygame.display.set_mode((self.dims.x, self.dims.y))
+		self.bglayer = pygame.Surface(screen.get_size())
+		
+		# Refresh clock
+		clock = pygame.time.Clock()
+		
+		# Init caption
+		pygame.display.set_caption("Square Shooter Desktop Edition")
+		
+		# Steering
+		pygame.event.set_blocked(pygame.MOUSEMOTION)
+		joystick = pygame.joystick.Joystick(0)
+		joystick.init()
+		axes = joystick.get_numaxes()
+		
+	def start(self, game)):
+		running = True
+		while(running):
+			delta_t = clock.tick(60)
+			
+			# Events handling
+			ev = pygame.event.pool()
+			if ev.type == pygame.QUIT:
+				running = False
+			elif ev.type == pygame.KEYUP:
+				if ev.key == pygame.K_ESCAPE:
+					running = False
+				elif ev.key == pygame.K_q:
+					if game.level == 0:
+						running = False
+					else:
+						game.init_game(0)
+				elif ev.key == pygame.K_p:
+					if game.level == 0:
+						game.init_game(1)
+					else:
+						game.toggle_pause()
+			elif ev.type == pygame.MOUSEBUTTONDOWN:
+				if game.level > 0 and not game.is_paused:
+					x, y = ev.pos
+					game.shoot_at(x / self.dims.y, y / self.dims.y)
+					game.fly_to(x / self.dims.y, y / self.dims.y)
+			elif ev_type == pygame.MOUSEBUTTONUP:
+				if game.level > 0:
+					game.stop_flying()
+			
+			# Update & render
+			if game.level > 0 and not game.is_paused:
+				game.update(delta_t * 0.001)
+			game.render()
 
-	
+###### ENTRY POINT #######		
+controller = Controller()
+game = Game(controller)
+controller.start(game)
