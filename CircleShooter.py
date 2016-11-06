@@ -208,8 +208,17 @@ class Bullet(Bubble2D):
 			int(round(self.radius * self.game.dims.y)))
 
 class Power_up(Bubble2D):
+	age = 0
+
 	def __init__(self, game):
-		Bubble2D.__init__(self, game)
+		Bubble2D.__init__(self, game, 0.03)
+	
+	def random_power_up(game):
+		if random.random() > 0.5:
+			return Shield_power_up(game)
+		else
+			return Freeze_power_up(game)
+	random_power_up = staticmethod(random_power_up)
 	
 	def update(self, delta_t):
 		super(Power_up, self).update(delta_t)
@@ -220,7 +229,10 @@ class Power_up(Bubble2D):
 class Shield_power_up(Power_up):
 	def __init__(self, game):
 		Power_up.__init__(self, game)
-		
+	
+	def use(self):
+		self.game.ship_shield_timer += 6
+	
 	def render(self):
 		super(Shield_power_up, self).render()
 		bbox = pygame.draw.circle(
@@ -234,6 +246,9 @@ class Shield_power_up(Power_up):
 class Freeze_power_up(Power_up):
 	def __init__(self, game):
 		Power_up.__init__(self, game)
+		
+	def use(self):
+		self.game.freeze_timer += 6
 		
 	def render(self):
 		super(Freeze_power_up, self).render()
@@ -281,6 +296,7 @@ class Enemy(Bubble2D):
 		new_enemy = Enemy(game, kind)
 		new_enemy.pos = Vector2D(random_position(), random_position())
 		new_enemy.speed = Vector2D(random_speed(), random_speed())	
+		return new_enemy
 	spawn = staticmethod(spawn)
 	
 	def update(self, delta_t):
@@ -297,7 +313,7 @@ class Enemy(Bubble2D):
 			
 class Explosion(Bubble2D):
 	def __init__(self, game):
-		Bubble2D.__init__(self, game)
+		Bubble2D.__init__(self, game, 0)
 	
 	def update(self, delta_t):
 		super(Explosion, self).update(delta_t)
@@ -403,9 +419,138 @@ class Game:
 		self.ship.accel.zero()
 	
 	def update(self, delta_t):
+		self.handle_collisions(delta_t)
 		
+		# Update explosions
+		if len(self.explosions) > 0:
+			if self.explosions[0].radius > 0.5:
+				self.explosions.pop(0)
+		for i in self.explosions:
+			i.radius += delta_t
 		
+		# Update powerups
+		if len(self.powerups) > 0:
+			if self.powerups[0].age > 9:
+				self.powerups.pop(0)
+		for i in self.powerups:
+			i.age += delta_t
+		
+		# Update shield timer
+		if self.ship_shield_timer > 0:
+			self.ship_shield_timer -= delta_t
+		
+		# Update freeze timer
+		if self.freeze_timer > 0:
+			self.freeze_timer -= delta_t
+		
+		if len(self.enemies) == 0:
+			# Update finish timer
+			if self.finish_timer > 0:
+				self.finish_timer -= delta_t;
+			else:
+				# Level up
+				++self.level
+				++self.lives
+				self.init_game(self.level)
+				return
+		# Update enemies
+		elif self.freeze_timer <= 0:
+			for e in self.enemies:
+				e.update(delta_t)
+		
+		# Bullet update
+		if self.bullet != None:
+			self.bullet.update(delta_t)
+		
+		# Ship spawn
+		if self.ship == None:
+			if self.death_timer > 0:
+				self.death_timer -= delta_t
+			elif self.lives > 0:
+				self.ship = Ship(self)
+			else:
+				self.level = 0 # Game over
+			return
+		
+		# Ship update
+		self.ship.speed += self.ship.accel
+		self.ship.speed *= Vector2D(0.99)
+		self.ship.update(delta_t)
+		
+	def handle_collisions(self):
+		for e in self.enemies:
+			if self.bullet != None and e.collides_with(self.bullet):
+				self.enemies.remove(e)
+				self.bullet.update(delta_t * 5)
+				self.spawn_enemies(e)
+				self.spawn_explosion(e)
+				self.mark_score(e)
+				if len(self.enemies) == 0:
+					self.finish_timer = 3
+				break
+			elif self.ship != None:
+				if not e.collides_with(self.ship):
+					continue
+				if self.ship_shield_timer > 0:
+					continue
+				self.spawn_explosion(self.ship)
+				self.ship = None
+				--self.lives
+				self.death_timer = 3;
+
+		if self.ship == None:
+			return
+		
+		for p in self.powerups:
+			if p.collides_with(self.ship):
+				self.apply_powerup(p)
+				self.powerups.remove(p)
+				
+	def spawn_enemies(self, parent):
+		if parent.kind == "small":
+			if random.random() < 0.25:
+				self.spawn_powerup(parent)
+		else:
+			if parent.kind == "big":
+				new_type = "medium"
+			elif parent.kind == "medium":
+				new_type = "small"
+				
+			enemy = Enemy.spawn(new_type)
+			enemy.position.copy(parent.position)
+			self.bubbles.append(enemy)
+			enemy = Enemy.spawn(new_type)
+			enemy.position.copy(parent.position)
+			self.bubbles.append(enemy)
 	
+	def spawn_explosion(self, enemy):
+		explosion = Explosion()
+		explosion.position.copy(enemy.position)
+		self.explosions.append(explosion)
+	
+	def spawn_powerup(self, enemy):
+		powerup = Power_up.random_power_up(self)
+		powerup.position.copy(enemy.position)
+		self.powerups.append(powerup)
+	
+	def mark_score(self, enemy):
+		if enemy.kind == "small":
+			self.score += 5
+		elif enemy.kind == "medium":
+			self.score += 2
+		elif enemy.kind == "big":
+			self.score += 1
+
+		if self.score > self.high_score:
+	
+	def apply_powerup(self, powerup):
+		powerup.use()
+		self.score += self.level * 10
+
+		# Update high score
+		if self.score > self.high_score:
+			self.high_score = self.score
+
 	def render(self):
 		self.screen.blit(self.bglayer, (0, 0))
 		
@@ -423,12 +568,12 @@ class Game:
 		self.screen.set_clip((0, 0, 480, 480))
 		
 		# Render all objects
-		map(lambda x: x.render(), get_all_objects())
+		map(lambda x: x.render(), filter(lambda y: y != None, get_all_objects()))
 		
 		self.screen.fill(Colors.GREEN, (500, 400, 140, 24))
 		
 	def get_all_objects(self):
-		return (ship + bullet + enemies + power_ups + explosions)
+		return ([ship] + [bullet] + enemies + power_ups + explosions)
 	
 class Controller:
 	def __init__(self):
