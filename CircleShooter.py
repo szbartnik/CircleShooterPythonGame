@@ -72,12 +72,10 @@ class Title_screen(Caption_object):
 		text = self.hud_font.render("CIRCLE", False, Colors.GREEN)
 		self.game.screen.blit(text, text.get_rect(midbottom = (240, 240)))
 		text = self.hud_font.render("SHOOTER", False, Colors.GREEN)
-		self.screen.blit(text, text.get_rect(midtop = (240, 240)))
+		self.game.screen.blit(text, text.get_rect(midtop = (240, 240)))
 		
-		text = self.msg_font.render("No Time To Play", False, Colors.GREEN)
-		self.screen.blit(text, text.get_rect(midbottom = (240, 120)))
-		text = self.msg_font.render("presents", False, Colors.GREEN)
-		self.screen.blit(text, text.get_rect(midtop = (240, 120)))
+		text = self.msg_font.render("Szymon Bartnik (OS2) 2016", False, Colors.GREEN)
+		self.game.screen.blit(text, text.get_rect(midbottom = (240, 120)))
 		
 		high_score = "High score: " + str(self.game.high_score)
 		text = self.msg_font.render(high_score, False, Colors.GREEN)
@@ -142,7 +140,7 @@ class Bubble2D(Renderable_object):
 		self.pos.x += self.speed.x * delta_t
 		self.pos.y += self.speed.y * delta_t
 		
-	def wrap_around():
+	def wrap_around(self):
 		pos = self.pos
 		if pos.x < 0: pos.x = 1
 		if pos.y < 0: pos.y = 1
@@ -171,7 +169,7 @@ class Ship(Bubble2D):
 		self.shield_timer = 6
 	
 	def update(self, delta_t):
-		super(Bubble2D, self).update(delta_t)
+		super(Ship, self).update(delta_t)
 		self.wrap_around()
 	
 	def render(self):
@@ -179,7 +177,7 @@ class Ship(Bubble2D):
 			self.game.screen,
 			Colors.SILVER,
 			self.get_fixed_position(),
-			int(round(self.radius * self.game.dims.y)
+			int(round(self.radius * self.game.dims.y)))
 			
 		pygame.draw.circle(
 			self.game.screen,
@@ -188,7 +186,7 @@ class Ship(Bubble2D):
 			int(round(self.radius * 0.5 * self.game.dims.y)),
 			1)
 			
-		if self.shield_timer > 0
+		if self.shield_timer > 0:
 			pygame.draw.rect(self.game.screen, Colors.SILVER, bbox, 1)
 			
 class Bullet(Bubble2D):
@@ -216,7 +214,7 @@ class Power_up(Bubble2D):
 	def random_power_up(game):
 		if random.random() > 0.5:
 			return Shield_power_up(game)
-		else
+		else:
 			return Freeze_power_up(game)
 	random_power_up = staticmethod(random_power_up)
 	
@@ -266,8 +264,8 @@ class Freeze_power_up(Power_up):
 		pygame.draw.rect(self.game.screen, Colors.WHITE, bbox, 1)
 		
 class Enemy(Bubble2D):
-	def __init__(self, game, kind):
-		Bubble2D.__init__(self, game)
+	def __init__(self, game, kind, size):
+		Bubble2D.__init__(self, game, size)
 		self.kind = kind
 		self.color = random.choice([
 			"#ffffcc", "#ffccff", 
@@ -293,9 +291,9 @@ class Enemy(Bubble2D):
 			size = 0.05
 			speed = 0.25
 			
-		new_enemy = Enemy(game, kind)
-		new_enemy.pos = Vector2D(random_position(), random_position())
-		new_enemy.speed = Vector2D(random_speed(), random_speed())	
+		new_enemy = Enemy(game, kind, size)
+		new_enemy.pos = Vector2D(Enemy.random_position(), Enemy.random_position())
+		new_enemy.speed = Vector2D(Enemy.random_speed(speed), Enemy.random_speed(speed))	
 		return new_enemy
 	spawn = staticmethod(spawn)
 	
@@ -354,6 +352,7 @@ class Game:
 		self.screen  = controller.screen
 		self.bglayer = controller.bglayer
 	
+		self.hud_obj           = Hud(self)
 		self.title_screen_obj  = Title_screen(self)
 		self.game_messages_obj = Game_messages(self)
 		self.background_obj    = Background(self)
@@ -429,15 +428,15 @@ class Game:
 			i.radius += delta_t
 		
 		# Update powerups
-		if len(self.powerups) > 0:
-			if self.powerups[0].age > 9:
-				self.powerups.pop(0)
-		for i in self.powerups:
+		if len(self.power_ups) > 0:
+			if self.power_ups[0].age > 9:
+				self.power_ups.pop(0)
+		for i in self.power_ups:
 			i.age += delta_t
 		
 		# Update shield timer
-		if self.ship_shield_timer > 0:
-			self.ship_shield_timer -= delta_t
+		if self.ship.shield_timer > 0:
+			self.ship.shield_timer -= delta_t
 		
 		# Update freeze timer
 		if self.freeze_timer > 0:
@@ -474,12 +473,12 @@ class Game:
 		
 		# Ship update
 		self.ship.speed += self.ship.accel
-		self.ship.speed *= Vector2D(0.99)
+		self.ship.speed *= Vector2D(0.99, 0.99)
 		self.ship.update(delta_t)
 		
-	def handle_collisions(self):
+	def handle_collisions(self, delta_t):
 		for e in self.enemies:
-			if self.bullet != None and e.collides_with(self.bullet):
+			if self.bullet != None and e.is_colliding(self.bullet):
 				self.enemies.remove(e)
 				self.bullet.update(delta_t * 5)
 				self.spawn_enemies(e)
@@ -489,7 +488,7 @@ class Game:
 					self.finish_timer = 3
 				break
 			elif self.ship != None:
-				if not e.collides_with(self.ship):
+				if not e.is_colliding(self.ship):
 					continue
 				if self.ship_shield_timer > 0:
 					continue
@@ -501,10 +500,10 @@ class Game:
 		if self.ship == None:
 			return
 		
-		for p in self.powerups:
-			if p.collides_with(self.ship):
+		for p in self.power_ups:
+			if p.is_colliding(self.ship):
 				self.apply_powerup(p)
-				self.powerups.remove(p)
+				self.power_ups.remove(p)
 				
 	def spawn_enemies(self, parent):
 		if parent.kind == "small":
@@ -531,7 +530,7 @@ class Game:
 	def spawn_powerup(self, enemy):
 		powerup = Power_up.random_power_up(self)
 		powerup.position.copy(enemy.position)
-		self.powerups.append(powerup)
+		self.power_ups.append(powerup)
 	
 	def mark_score(self, enemy):
 		if enemy.kind == "small":
@@ -542,6 +541,7 @@ class Game:
 			self.score += 1
 
 		if self.score > self.high_score:
+			self.high_score = self.score
 	
 	def apply_powerup(self, powerup):
 		powerup.use()
@@ -581,27 +581,24 @@ class Controller:
 		pygame.init()
 		self.dims = Vector2D(640, 480)
 		self.screen = pygame.display.set_mode((self.dims.x, self.dims.y))
-		self.bglayer = pygame.Surface(screen.get_size())
+		self.bglayer = pygame.Surface(self.screen.get_size())
 		
 		# Refresh clock
-		clock = pygame.time.Clock()
+		self.clock = pygame.time.Clock()
 		
 		# Init caption
 		pygame.display.set_caption("Square Shooter Desktop Edition")
 		
 		# Steering
 		pygame.event.set_blocked(pygame.MOUSEMOTION)
-		joystick = pygame.joystick.Joystick(0)
-		joystick.init()
-		axes = joystick.get_numaxes()
 		
-	def start(self, game)):
+	def start(self, game):
 		running = True
 		while(running):
-			delta_t = clock.tick(60)
+			delta_t = self.clock.tick(60)
 			
 			# Events handling
-			ev = pygame.event.pool()
+			ev = pygame.event.poll()
 			if ev.type == pygame.QUIT:
 				running = False
 			elif ev.type == pygame.KEYUP:
@@ -622,7 +619,7 @@ class Controller:
 					x, y = ev.pos
 					game.shoot_at(x / self.dims.y, y / self.dims.y)
 					game.fly_to(x / self.dims.y, y / self.dims.y)
-			elif ev_type == pygame.MOUSEBUTTONUP:
+			elif ev.type == pygame.MOUSEBUTTONUP:
 				if game.level > 0:
 					game.stop_flying()
 			
