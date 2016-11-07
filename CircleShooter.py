@@ -1,3 +1,4 @@
+from __future__ import division
 import math
 import random
 import pygame
@@ -33,8 +34,9 @@ class Vector2D:
 		self.y = 0
 
 class Colors: 
-	BLACK  = (0,     0,   0)
-	GREEN  = (0,   204,   0)
+	BLACK  = (  0,   0,   0)
+	GREEN  = (  0, 204,   0)
+	BLUE   = ( 20, 100, 190)
 	RED    = (255,   0,   0)
 	SILVER = (204, 204, 204)
 	WHITE  = (255, 255, 255)
@@ -62,31 +64,31 @@ class Caption_object(Renderable_object):
 		Renderable_object.__init__(self, game, Vector2D(0, 0))
 		font_name = pygame.font.get_default_font()
 		self.hud_font = pygame.font.SysFont(
-			font_name, game.dims.y / 10)
+			font_name, game.dims.y // 10)
 		self.msg_font = pygame.font.SysFont(
-			font_name, game.dims.y / 20)
+			font_name, game.dims.y // 20)
 		
 class Title_screen(Caption_object):
 	def __init__(self, game):
 		Caption_object.__init__(self, game)
 		
 	def render(self):
-		text = self.hud_font.render("CIRCLE", False, Colors.GREEN)
+		text = self.hud_font.render("CIRCLE", False, Colors.BLUE)
 		self.game.screen.blit(text, text.get_rect(midbottom = (240, 240)))
-		text = self.hud_font.render("SHOOTER", False, Colors.GREEN)
+		text = self.hud_font.render("SHOOTER", False, Colors.BLUE)
 		self.game.screen.blit(text, text.get_rect(midtop = (240, 240)))
 		
-		text = self.msg_font.render("Szymon Bartnik (OS2) 2016", False, Colors.GREEN)
+		text = self.msg_font.render("Szymon Bartnik (OS2) 2016", False, Colors.BLUE)
 		self.game.screen.blit(text, text.get_rect(midbottom = (240, 120)))
 		
 		high_score = "High score: " + str(self.game.high_score)
-		text = self.msg_font.render(high_score, False, Colors.GREEN)
+		text = self.msg_font.render(high_score, False, Colors.BLUE)
 		self.game.screen.blit(text, text.get_rect(midbottom = (240, 360)))
 		max_level = "Max level: " + str(self.game.max_level)
-		text = self.msg_font.render(max_level, False, Colors.GREEN)
+		text = self.msg_font.render(max_level, False, Colors.BLUE)
 		self.game.screen.blit(text, text.get_rect(midtop = (240, 360)))
 		
-		self.game.screen.fill(Colors.GREEN, (500, 424, 140, 24))
+		self.game.screen.fill(Colors.BLUE, (500, 424, 140, 24))
 	
 class Hud(Caption_object):
 	def __init__(self, game):
@@ -106,12 +108,12 @@ class Game_messages(Caption_object):
 		
 	def render(self):
 		if (self.game.death_timer > 0) and (self.game.lives < 1):
-			text = self.hud_font.render("GAME", False, Colors.GREEN)
+			text = self.hud_font.render("GAME", False, Colors.BLUE)
 			self.game.screen.blit(text, text.get_rect(midbottom = (240, 240)))
-			text = self.hud_font.render("OVER", False, Colors.GREEN)
+			text = self.hud_font.render("OVER", False, Colors.BLUE)
 			self.game.screen.blit(text, text.get_rect(midtop = (240, 240)))
 		elif self.game.is_paused:
-			text = self.msg_font.render("Game paused", False, Colors.GREEN)
+			text = self.msg_font.render("Game paused", False, Colors.BLUE)
 			self.game.screen.blit(text, text.get_rect(midbottom = (240, 480)))
 	
 class Background(Caption_object):
@@ -120,7 +122,7 @@ class Background(Caption_object):
 		
 	def render(self):
 		self.game.bglayer.fill(Colors.BLACK)
-		self.game.bglayer.fill(Colors.GREEN, (480, 0, 160, 480))
+		self.game.bglayer.fill(Colors.BLUE, (480, 0, 160, 480))
 		
 		msg = ["Level", "Lives", "Score"]
 		for i in range(3):
@@ -166,7 +168,7 @@ class Ship(Bubble2D):
 	accel = Vector2D(0, 0)
 
 	def __init__(self, game):
-		Bubble2D.__init__(self, game, 1.0 / 25)
+		Bubble2D.__init__(self, game, 1 / 25)
 		self.pos = Vector2D(0.5, 0.5)
 		self.shield_timer = 6
 	
@@ -257,7 +259,7 @@ class Freeze_power_up(Power_up):
 		pos_x = self.pos.x * self.game.dims.x
 		pos_y = self.pos.y * self.game.dims.y
 		
-		bbox = pygame.rect(0, 0, radius * 2, radius * 2)
+		bbox = pygame.Rect(0, 0, radius * 2, radius * 2)
 		bbox.center = (pos_x, pos_y)
 		pygame.draw.rect(self.game.screen, Colors.WHITE, bbox, 1)
 		bbox.inflate_ip(-radius, -radius)
@@ -422,6 +424,8 @@ class Game:
 	def update(self, delta_t):
 		self.handle_collisions(delta_t)
 		
+		self.remove_inactive_objects()
+		
 		# Update explosions
 		if len(self.explosions) > 0:
 			if self.explosions[0].radius > 0.5:
@@ -466,7 +470,7 @@ class Game:
 			elif self.lives > 0:
 				self.ship = Ship(self)
 			else:
-				self.level = 0 # Game over
+				self.level = 0
 			return
 		
 		# Update shield timer
@@ -517,12 +521,12 @@ class Game:
 			elif parent.kind == "medium":
 				new_type = "small"
 				
-			enemy = Enemy.spawn(new_type)
+			enemy = Enemy.spawn(new_type, self)
 			enemy.pos.copy(parent.pos)
-			self.bubbles.append(enemy)
-			enemy = Enemy.spawn(new_type)
+			self.enemies.append(enemy)
+			enemy = Enemy.spawn(new_type, self)
 			enemy.pos.copy(parent.pos)
-			self.bubbles.append(enemy)
+			self.enemies.append(enemy)
 	
 	def spawn_explosion(self, enemy):
 		explosion = Explosion(self)
@@ -570,12 +574,21 @@ class Game:
 		self.screen.set_clip((0, 0, 480, 480))
 		
 		# Render all objects
-		map(lambda x: x.render(), filter(lambda y: y != None, self.get_all_objects()))
+		map(lambda x: x.render(), self.get_all_objects())
 		
-		self.screen.fill(Colors.GREEN, (500, 400, 140, 24))
+		self.screen.fill(Colors.BLUE, (500, 400, 140, 24))
 		
 	def get_all_objects(self):
-		return ([self.ship] + [self.bullet] + self.enemies + self.power_ups + self.explosions)
+		return filter(lambda x: x != None, (
+			[self.ship] + 
+			[self.bullet] + 
+			self.enemies + 
+			self.power_ups + 
+			self.explosions))
+			
+	def remove_inactive_objects(self):
+		if self.bullet and (not self.bullet.is_active):
+			self.bullet = None
 	
 class Controller:
 	def __init__(self):
@@ -630,7 +643,7 @@ class Controller:
 				game.update(delta_t * 0.001)
 			game.render()
 
-###### ENTRY POINT #######		
+###### ENTRY POINT ######	
 controller = Controller()
 game = Game(controller)
 controller.start(game)
