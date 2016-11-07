@@ -22,6 +22,7 @@ class Vector2D:
 	def __imul__(self, vector):
 		self.x *= vector.x
 		self.y *= vector.y
+		return self
 	
 	def copy(self, vector):
 		self.x = vector.x
@@ -32,10 +33,11 @@ class Vector2D:
 		self.y = 0
 
 class Colors: 
-	BLACK = (0,     0,   0)
-	GREEN = (0,   204,   0)
-	RED   = (204, 204, 204)
-	WHITE = (255, 255, 255)
+	BLACK  = (0,     0,   0)
+	GREEN  = (0,   204,   0)
+	RED    = (255,   0,   0)
+	SILVER = (204, 204, 204)
+	WHITE  = (255, 255, 255)
 	
 class Renderable_object:
 	__metaclass__ = ABCMeta
@@ -229,7 +231,7 @@ class Shield_power_up(Power_up):
 		Power_up.__init__(self, game)
 	
 	def use(self):
-		self.game.ship_shield_timer += 6
+		self.game.ship.shield_timer += 6
 	
 	def render(self):
 		super(Shield_power_up, self).render()
@@ -267,10 +269,10 @@ class Enemy(Bubble2D):
 	def __init__(self, game, kind, size):
 		Bubble2D.__init__(self, game, size)
 		self.kind = kind
-		self.color = random.choice([
+		self.color = random.choice(map(lambda x: pygame.Color(x), [
 			"#ffffcc", "#ffccff", 
 		    "#ccffff", "#ffdddd", 
-		    "#ddffdd", "#ddddff"])
+		    "#ddffdd", "#ddddff"]))
 	
 	def random_position():
 		return (random.random() - 0.5) * 3 + 0.5;
@@ -379,7 +381,7 @@ class Game:
 			self.enemies.append(Enemy.spawn("big", self))
 	
 	def toggle_pause(self):
-		is_paused = not is_paused
+		self.is_paused = not self.is_paused
 	
 	def shoot_at(self, x, y):
 		if self.bullet != None or self.ship == None:
@@ -434,10 +436,6 @@ class Game:
 		for i in self.power_ups:
 			i.age += delta_t
 		
-		# Update shield timer
-		if self.ship.shield_timer > 0:
-			self.ship.shield_timer -= delta_t
-		
 		# Update freeze timer
 		if self.freeze_timer > 0:
 			self.freeze_timer -= delta_t
@@ -471,6 +469,10 @@ class Game:
 				self.level = 0 # Game over
 			return
 		
+		# Update shield timer
+		if self.ship.shield_timer > 0:
+			self.ship.shield_timer -= delta_t
+		
 		# Ship update
 		self.ship.speed += self.ship.accel
 		self.ship.speed *= Vector2D(0.99, 0.99)
@@ -490,7 +492,7 @@ class Game:
 			elif self.ship != None:
 				if not e.is_colliding(self.ship):
 					continue
-				if self.ship_shield_timer > 0:
+				if self.ship.shield_timer > 0:
 					continue
 				self.spawn_explosion(self.ship)
 				self.ship = None
@@ -516,20 +518,20 @@ class Game:
 				new_type = "small"
 				
 			enemy = Enemy.spawn(new_type)
-			enemy.position.copy(parent.position)
+			enemy.pos.copy(parent.pos)
 			self.bubbles.append(enemy)
 			enemy = Enemy.spawn(new_type)
-			enemy.position.copy(parent.position)
+			enemy.pos.copy(parent.pos)
 			self.bubbles.append(enemy)
 	
 	def spawn_explosion(self, enemy):
-		explosion = Explosion()
-		explosion.position.copy(enemy.position)
+		explosion = Explosion(self)
+		explosion.pos.copy(enemy.pos)
 		self.explosions.append(explosion)
 	
 	def spawn_powerup(self, enemy):
 		powerup = Power_up.random_power_up(self)
-		powerup.position.copy(enemy.position)
+		powerup.pos.copy(enemy.pos)
 		self.power_ups.append(powerup)
 	
 	def mark_score(self, enemy):
@@ -568,12 +570,12 @@ class Game:
 		self.screen.set_clip((0, 0, 480, 480))
 		
 		# Render all objects
-		map(lambda x: x.render(), filter(lambda y: y != None, get_all_objects()))
+		map(lambda x: x.render(), filter(lambda y: y != None, self.get_all_objects()))
 		
 		self.screen.fill(Colors.GREEN, (500, 400, 140, 24))
 		
 	def get_all_objects(self):
-		return ([ship] + [bullet] + enemies + power_ups + explosions)
+		return ([self.ship] + [self.bullet] + self.enemies + self.power_ups + self.explosions)
 	
 class Controller:
 	def __init__(self):
