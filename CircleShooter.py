@@ -96,11 +96,11 @@ class Hud(Caption_object):
 		
 	def render(self):
 		text = self.hud_font.render(str(self.game.level), False, Colors.BLACK)
-		self.game.screen.blit(text, (500, 48))
+		self.game.screen.blit(text, (500, 20 + 48))
 		text = self.hud_font.render(str(self.game.lives), False, Colors.BLACK)
-		self.game.screen.blit(text, (500, 48 * 3))
+		self.game.screen.blit(text, (500, 20 + 48 * 3))
 		text = self.hud_font.render(str(self.game.score), False, Colors.BLACK)
-		self.game.screen.blit(text, (500, 48 * 5))
+		self.game.screen.blit(text, (500, 20 + 48 * 5))
 		
 class Game_messages(Caption_object):
 	def __init__(self, game):
@@ -127,7 +127,7 @@ class Background(Caption_object):
 		msg = ["Level", "Lives", "Score"]
 		for i in range(3):
 			text = self.hud_font.render(msg[i], False, Colors.BLACK)
-			self.game.bglayer.blit(text, (500, i * 96))
+			self.game.bglayer.blit(text, (500, 20 + i * 96))
 		
 		msg = ["[Q]uit", "[P]ause", "[P]lay"]
 		for i in range(3):
@@ -577,6 +577,8 @@ class Game:
 		map(lambda x: x.render(), self.get_all_objects())
 		
 		self.screen.fill(Colors.BLUE, (500, 400, 140, 24))
+		
+		self.screen.set_clip(None)
 		
 	def get_all_objects(self):
 		return filter(lambda x: x != None, (
