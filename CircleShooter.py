@@ -131,8 +131,8 @@ class Game:
 				self.finish_timer -= delta_t;
 			else:
 				# Level up
-				++self.level
-				++self.lives
+				self.level += 1
+				self.lives += 1
 				self.init_game(self.level)
 				return
 		# Update enemies
