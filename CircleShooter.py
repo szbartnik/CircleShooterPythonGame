@@ -4,10 +4,10 @@ import random
 import pygame
 from abc import ABCMeta, abstractmethod
 
-execfile('Helpers.py')
-execfile('GameCfg.py')
-execfile('ScrCfg.py')
-execfile('GameObjects.py')
+execfile('includes/Helpers.py')
+execfile('includes/GameCfg.py')
+execfile('includes/ScrCfg.py')
+execfile('includes/GameObjects.py')
 
 class Game:
 	# Current statistics
