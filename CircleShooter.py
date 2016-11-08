@@ -181,7 +181,7 @@ class Game:
 					continue
 				self.spawn_explosion(self.ship)
 				self.ship = None
-				--self.lives
+				self.lives -= 1
 				self.death_timer = GameCfg.death_timer;
 
 		if self.ship == None:
