@@ -5,6 +5,41 @@ import pygame
 import os.path
 from abc import ABCMeta, abstractmethod
 
+class ScrCfg:
+	width = 800
+	height = 600
+	h_height = height/2
+	q_height = height/4
+	f_height = height/5
+	t_height = height/10
+	bar_width = width - height
+	bar_margin = 20
+	
+class GameCfg:
+	freeze_timer = 6
+	finish_timer = 3
+	death_timer = 3
+	
+	initial_lives = 3
+	bullet_speed_multiplier = 3
+	ship_accel_multiplier = 0.03
+	ship_resistance = 0.99
+	max_explosion_size = 0.5
+	power_up_age = 9
+	chance_powerup_occurs = 0.25
+	
+	big_enemy_size = 0.1
+	big_enemy_speed = 0.1
+	big_enemy_score = 1
+	medium_enemy_size = 0.075
+	medium_enemy_speed = 0.15
+	medium_enemy_score = 2
+	small_enemy_size = 0.05
+	small_enemy_speed = 0.25
+	small_enemy_score = 5
+	
+	level_score_multiplier = 10
+
 class Vector2D:
 	def __init__(self, x, y):
 		self.x = x
@@ -32,7 +67,7 @@ class Vector2D:
 	def zero(self):
 		self.x = 0
 		self.y = 0
-
+		
 class Colors: 
 	BLACK  = (  0,   0,   0)
 	GREEN  = (  0, 204,   0)
@@ -74,21 +109,19 @@ class Title_screen(Caption_object):
 		
 	def render(self):
 		text = self.hud_font.render("CIRCLE", False, Colors.BLUE)
-		self.game.screen.blit(text, text.get_rect(midbottom = (240, 240)))
+		self.game.screen.blit(text, text.get_rect(midbottom = (ScrCfg.h_height, ScrCfg.h_height)))
 		text = self.hud_font.render("SHOOTER", False, Colors.BLUE)
-		self.game.screen.blit(text, text.get_rect(midtop = (240, 240)))
+		self.game.screen.blit(text, text.get_rect(midtop = (ScrCfg.h_height, ScrCfg.h_height)))
 		
 		text = self.msg_font.render("Szymon Bartnik (OS2) 2016", False, Colors.BLUE)
-		self.game.screen.blit(text, text.get_rect(midbottom = (240, 120)))
+		self.game.screen.blit(text, text.get_rect(midbottom = (ScrCfg.h_height, ScrCfg.q_height)))
 		
 		high_score = "High score: " + str(self.game.high_score)
 		text = self.msg_font.render(high_score, False, Colors.BLUE)
-		self.game.screen.blit(text, text.get_rect(midbottom = (240, 360)))
+		self.game.screen.blit(text, text.get_rect(midbottom = (ScrCfg.h_height, ScrCfg.q_height * 3)))
 		max_level = "Max level: " + str(self.game.max_level)
 		text = self.msg_font.render(max_level, False, Colors.BLUE)
-		self.game.screen.blit(text, text.get_rect(midtop = (240, 360)))
-		
-		self.game.screen.fill(Colors.BLUE, (500, 424, 140, 24))
+		self.game.screen.blit(text, text.get_rect(midtop = (ScrCfg.h_height, ScrCfg.q_height * 3)))
 	
 class Hud(Caption_object):
 	def __init__(self, game):
@@ -96,11 +129,11 @@ class Hud(Caption_object):
 		
 	def render(self):
 		text = self.hud_font.render(str(self.game.level), False, Colors.BLACK)
-		self.game.screen.blit(text, (500, 20 + 48))
+		self.game.screen.blit(text, (ScrCfg.height + ScrCfg.bar_margin, ScrCfg.bar_margin + ScrCfg.t_height))
 		text = self.hud_font.render(str(self.game.lives), False, Colors.BLACK)
-		self.game.screen.blit(text, (500, 20 + 48 * 3))
+		self.game.screen.blit(text, (ScrCfg.height + ScrCfg.bar_margin, ScrCfg.bar_margin + ScrCfg.t_height * 3))
 		text = self.hud_font.render(str(self.game.score), False, Colors.BLACK)
-		self.game.screen.blit(text, (500, 20 + 48 * 5))
+		self.game.screen.blit(text, (ScrCfg.height + ScrCfg.bar_margin, ScrCfg.bar_margin + ScrCfg.h_height))
 		
 class Game_messages(Caption_object):
 	def __init__(self, game):
@@ -109,12 +142,12 @@ class Game_messages(Caption_object):
 	def render(self):
 		if (self.game.death_timer > 0) and (self.game.lives < 1):
 			text = self.hud_font.render("GAME", False, Colors.BLUE)
-			self.game.screen.blit(text, text.get_rect(midbottom = (240, 240)))
+			self.game.screen.blit(text, text.get_rect(midbottom = (ScrCfg.h_height, ScrCfg.h_height)))
 			text = self.hud_font.render("OVER", False, Colors.BLUE)
-			self.game.screen.blit(text, text.get_rect(midtop = (240, 240)))
+			self.game.screen.blit(text, text.get_rect(midtop = (ScrCfg.h_height, ScrCfg.h_height)))
 		elif self.game.is_paused:
 			text = self.msg_font.render("Game paused", False, Colors.BLUE)
-			self.game.screen.blit(text, text.get_rect(midbottom = (240, 480)))
+			self.game.screen.blit(text, text.get_rect(midbottom = (ScrCfg.width, ScrCfg.height)))
 	
 class Background(Caption_object):
 	def __init__(self, game):
@@ -122,17 +155,17 @@ class Background(Caption_object):
 		
 	def render(self):
 		self.game.bglayer.fill(Colors.BLACK)
-		self.game.bglayer.fill(Colors.BLUE, (480, 0, 160, 480))
+		self.game.bglayer.fill(Colors.BLUE, (ScrCfg.height, 0, ScrCfg.bar_width, ScrCfg.height))
 		
 		msg = ["Level", "Lives", "Score"]
-		for i in range(3):
+		for i in range(len(msg)):
 			text = self.hud_font.render(msg[i], False, Colors.BLACK)
-			self.game.bglayer.blit(text, (500, 20 + i * 96))
+			self.game.bglayer.blit(text, (ScrCfg.height + ScrCfg.bar_margin, ScrCfg.bar_margin + i * ScrCfg.t_height * 2))
 		
-		msg = ["[Q]uit", "[P]ause", "[P]lay"]
-		for i in range(3):
+		msg = ["[P]lay/[P]ause", "[Q]uit"]
+		for i in range(len(msg)):
 			text = self.msg_font.render(msg[i], False, Colors.WHITE)
-			self.game.bglayer.blit(text, (500, 448 - i * 24))
+			self.game.bglayer.blit(text, (ScrCfg.height + ScrCfg.bar_margin, ScrCfg.height - (len(msg)-i) * ScrCfg.t_height / 2))
 	
 class Bubble2D(Renderable_object):
 	def __init__(self, game, radius):
@@ -250,7 +283,7 @@ class Freeze_power_up(Power_up):
 		Power_up.__init__(self, game)
 		
 	def use(self):
-		self.game.freeze_timer += 6
+		self.game.freeze_timer += GameCfg.freeze_timer
 		
 	def render(self):
 		super(Freeze_power_up, self).render()
@@ -286,14 +319,14 @@ class Enemy(Bubble2D):
 	
 	def spawn(kind, game):
 		if kind == "big":
-			size = 0.1
-			speed = 0.1
+			size = GameCfg.big_enemy_size
+			speed = GameCfg.big_enemy_speed
 		elif kind == "medium":
-			size = 0.075
-			speed = 0.15
+			size = GameCfg.medium_enemy_size
+			speed = GameCfg.medium_enemy_speed
 		elif kind == "small":
-			size = 0.05
-			speed = 0.25
+			size = GameCfg.small_enemy_size
+			speed = GameCfg.small_enemy_speed
 			
 		new_enemy = Enemy(game, kind, size)
 		new_enemy.pos = Vector2D(Enemy.random_position(), Enemy.random_position())
@@ -330,8 +363,8 @@ class Explosion(Bubble2D):
 	
 class Game:
 	# Current statistics
+	lives = GameCfg.initial_lives
 	level = 0
-	lives = 3
 	score = 0
 	
 	# Permanent statistics
@@ -394,8 +427,8 @@ class Game:
 
 		bullet = Bullet(self)
 		bullet.pos.copy(self.ship.pos);
-		bullet.speed.x = x * 3
-		bullet.speed.y = y * 3
+		bullet.speed.x = x * GameCfg.bullet_speed_multiplier
+		bullet.speed.y = y * GameCfg.bullet_speed_multiplier
 	
 		absx = abs(x)
 		absy = abs(y)
@@ -412,8 +445,8 @@ class Game:
 		x -= self.ship.pos.x;
 		y -= self.ship.pos.y;
 		
-		self.ship.accel.x += x * 0.03;
-		self.ship.accel.y += y * 0.03;
+		self.ship.accel.x += x * GameCfg.ship_accel_multiplier;
+		self.ship.accel.y += y * GameCfg.ship_accel_multiplier;
 	
 	def stop_flying(self):
 		if self.ship == None:
@@ -428,14 +461,14 @@ class Game:
 		
 		# Update explosions
 		if len(self.explosions) > 0:
-			if self.explosions[0].radius > 0.5:
+			if self.explosions[0].radius > GameCfg.max_explosion_size:
 				self.explosions.pop(0)
 		for i in self.explosions:
 			i.radius += delta_t
 		
 		# Update powerups
 		if len(self.power_ups) > 0:
-			if self.power_ups[0].age > 9:
+			if self.power_ups[0].age > GameCfg.power_up_age:
 				self.power_ups.pop(0)
 		for i in self.power_ups:
 			i.age += delta_t
@@ -479,7 +512,7 @@ class Game:
 		
 		# Ship update
 		self.ship.speed += self.ship.accel
-		self.ship.speed *= Vector2D(0.99, 0.99)
+		self.ship.speed *= Vector2D(GameCfg.ship_resistance, GameCfg.ship_resistance)
 		self.ship.update(delta_t)
 		
 	def handle_collisions(self, delta_t):
@@ -491,7 +524,7 @@ class Game:
 				self.spawn_explosion(e)
 				self.mark_score(e)
 				if len(self.enemies) == 0:
-					self.finish_timer = 3
+					self.finish_timer = GameCfg.finish_timer
 				break
 			elif self.ship != None:
 				if not e.is_colliding(self.ship):
@@ -501,7 +534,7 @@ class Game:
 				self.spawn_explosion(self.ship)
 				self.ship = None
 				--self.lives
-				self.death_timer = 3;
+				self.death_timer = GameCfg.death_timer;
 
 		if self.ship == None:
 			return
@@ -513,7 +546,7 @@ class Game:
 				
 	def spawn_enemies(self, parent):
 		if parent.kind == "small":
-			if random.random() < 0.25:
+			if random.random() < GameCfg.chance_powerup_occurs:
 				self.spawn_powerup(parent)
 		else:
 			if parent.kind == "big":
@@ -540,18 +573,18 @@ class Game:
 	
 	def mark_score(self, enemy):
 		if enemy.kind == "small":
-			self.score += 5
+			self.score += GameCfg.small_enemy_score
 		elif enemy.kind == "medium":
-			self.score += 2
+			self.score += GameCfg.medium_enemy_score
 		elif enemy.kind == "big":
-			self.score += 1
+			self.score += GameCfg.big_enemy_score
 
 		if self.score > self.high_score:
 			self.high_score = self.score
 	
 	def apply_powerup(self, powerup):
 		powerup.use()
-		self.score += self.level * 10
+		self.score += self.level * GameCfg.level_score_multiplier
 
 		# Update high score
 		if self.score > self.high_score:
@@ -571,12 +604,10 @@ class Game:
 		pygame.display.flip()
 	
 	def render_game_objects(self):
-		self.screen.set_clip((0, 0, 480, 480))
+		self.screen.set_clip((0, 0, ScrCfg.height, ScrCfg.height))
 		
 		# Render all objects
 		map(lambda x: x.render(), self.get_all_objects())
-		
-		self.screen.fill(Colors.BLUE, (500, 400, 140, 24))
 		
 		self.screen.set_clip(None)
 		
@@ -596,7 +627,7 @@ class Controller:
 	def __init__(self):
 		# PyGame init
 		pygame.init()
-		self.dims = Vector2D(640, 480)
+		self.dims = Vector2D(ScrCfg.width, ScrCfg.height)
 		self.screen = pygame.display.set_mode((self.dims.x, self.dims.y))
 		self.bglayer = pygame.Surface(self.screen.get_size())
 		
