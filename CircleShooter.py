@@ -282,9 +282,6 @@ class Controller:
 		# Refresh clock
 		self.clock = pygame.time.Clock()
 		
-		# Init caption
-		pygame.display.set_caption("Circle Shooter - Szymon Bartnik")
-		
 		# Steering
 		pygame.event.set_blocked(pygame.MOUSEMOTION)
 		

@@ -35,7 +35,7 @@ class Title_screen(Caption_object):
 		text = self.hud_font.render("SHOOTER", False, Colors.BLUE)
 		self.game.screen.blit(text, text.get_rect(midtop = (ScrCfg.h_height, ScrCfg.h_height)))
 		
-		text = self.msg_font.render("Szymon Bartnik (OS2) 2016", False, Colors.BLUE)
+		text = self.msg_font.render("S.Bartnik & K.Zrodlowski (OS2) 2016", False, Colors.BLUE)
 		self.game.screen.blit(text, text.get_rect(midbottom = (ScrCfg.h_height, ScrCfg.q_height)))
 		
 		high_score = "High score: " + str(self.game.high_score)
